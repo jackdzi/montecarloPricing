@@ -11,51 +11,65 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-function Graph() {
+function Graph({ ticker }) {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    // Create a new WebSocket connection.
+    // Only connect if a ticker is provided.
+    if (!ticker) return;
+
+    // Open a new WebSocket connection.
     const socket = new WebSocket('ws://localhost:4000');
 
-    // When the connection opens, you can send an optional message to the server.
     socket.addEventListener('open', () => {
       console.log('WebSocket connection opened');
-      // socket.send(JSON.stringify({ type: 'INIT', message: 'Client connected' }));
+      // Send a subscription message with the ticker.
+      socket.send(JSON.stringify({ type: 'subscribe', ticker }));
     });
 
-    // Listen for messages from the server.
     socket.addEventListener('message', (event) => {
       console.log('Message received:', event.data);
       try {
         const parsedData = JSON.parse(event.data);
-        // Update the data state. This assumes your data is an array of objects.
-        setData(parsedData);
+        // Ensure parsedData is an array (e.g., [{ time: '10:00', value: 123 }])
+        if (Array.isArray(parsedData)) {
+          // Append new data points to existing data.
+          setData((prevData) => [...prevData, ...parsedData]);
+        }
       } catch (error) {
         console.error('Error parsing WebSocket data:', error);
       }
     });
 
-    // Clean up the WebSocket connection when the component unmounts.
+    // Clean up when the ticker changes or the component unmounts.
     return () => {
       socket.close();
+      console.log('WebSocket connection closed');
     };
-  }, []);
+  }, [ticker]);
 
   return (
-    <ResponsiveContainer width="100%" height={400}>
-      <LineChart
-        data={data}
-        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" />
-        <YAxis />
-        <Tooltip />
-        <Legend />
-        <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} />
-      </LineChart>
-    </ResponsiveContainer>
+    <div>
+      {ticker ? (
+        <>
+          <h2 className="text-center text-xl mb-4">
+            Real-Time Data for {ticker.toUpperCase()}
+          </h2>
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="time" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
+      ) : (
+        <p className="text-center text-gray-600">Enter a stock ticker to see live data.</p>
+      )}
+    </div>
   );
 }
 
